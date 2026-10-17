@@ -1,0 +1,9 @@
+.env
+__pycache__/
+*.pyc
+.pytest_cache/
+rehearsal_results.json
+
+# Saved runs stay local, except the recorded demo used for replay.
+runs/*
+!runs/e714faad.json

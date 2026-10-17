@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Helm Cockpit</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --panel2: #1f2630; --line: #30363d;
+    --text: #f0f3f6; --muted: #9da7b3; --gemma: #4f8cff;
+    --steer: #f5b941; --gate: #b48cff; --good: #3fb950; --bad: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; height: 100vh; display: flex; flex-direction: column; }
+  button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--line); background: var(--panel2); color: var(--text); padding: 8px 14px; }
+  button.primary { background: var(--gemma); border-color: var(--gemma); color: #fff; font-weight: 600; }
+  button:disabled { opacity: .5; cursor: default; }
+  input, select { font: inherit; background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+
+  header { display: flex; gap: 10px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
+  .logo { font-weight: 800; font-size: 24px; letter-spacing: .5px; margin-right: 6px; }
+  .logo span { color: var(--gemma); }
+  .badge { font-size: 13px; font-weight: 700; padding: 3px 9px; border-radius: 999px; border: 1px solid; }
+  .badge.live { color: var(--good); border-color: var(--good); }
+  .badge.mock { color: var(--steer); border-color: var(--steer); }
+  .badge.replay { color: var(--gate); border-color: var(--gate); }
+  #taskInput { flex: 1; min-width: 260px; }
+
+  main { flex: 1; display: grid; grid-template-columns: 290px 1fr 360px; min-height: 0; }
+  section { overflow-y: auto; padding: 14px 16px; border-right: 1px solid var(--line); }
+  section:last-child { border-right: 0; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); margin: 0 0 10px; }
+
+  .step { padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px; background: var(--panel); }
+  .step .status { font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--muted); }
+  .step.running { border-color: var(--gemma); box-shadow: 0 0 0 1px var(--gemma); }
+  .step.running .status { color: var(--gemma); }
+  .step.done .status { color: var(--good); }
+  .step.removed { opacity: .45; text-decoration: line-through; }
+  .step.changed { border-left: 5px solid var(--steer); }
+  .tag { font-size: 11px; font-weight: 700; color: #111; background: var(--steer); padding: 1px 6px; border-radius: 4px; margin-left: 6px; }
+
+  .card { border-radius: 12px; padding: 12px 16px; margin-bottom: 12px; background: var(--panel); border: 1px solid var(--line); }
+  .card.task { font-size: 20px; font-weight: 600; }
+  .stepgroup { border-left: 3px solid var(--gemma); padding-left: 14px; margin-bottom: 18px; }
+  .stepgroup .title { font-size: 14px; color: var(--muted); font-weight: 600; }
+  .narration { font-size: 22px; line-height: 1.4; margin: 6px 0 8px; }
+  .narration.waiting { color: var(--muted); font-size: 16px; font-style: italic; }
+  details { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; margin-bottom: 8px; }
+  summary { cursor: pointer; color: var(--muted); font-size: 15px; }
+  details ul { margin: 6px 0; padding-left: 20px; }
+  .sources a { color: var(--gemma); word-break: break-all; font-size: 14px; }
+  .check { font-size: 15px; padding: 6px 10px; border-radius: 8px; margin-bottom: 6px; background: var(--panel); }
+  .check.split { border: 1px solid var(--gate); }
+  .chip { display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 7px; border-radius: 4px; margin-right: 4px; }
+  .chip.agree { background: var(--good); color: #0b1a0f; }
+  .chip.disagree { background: var(--bad); color: #200; }
+  .chip.unsure, .chip.error { background: var(--line); color: var(--text); }
+  .card.steer { border: 2px solid var(--steer); }
+  .card.steer b, .card.steer .who { color: var(--steer); }
+  .card.gate { border: 2px solid var(--gate); }
+  .card.gate .who { color: var(--gate); }
+  .who { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
+  .card.error { border: 2px solid var(--bad); color: var(--bad); }
+  .card.finished { border: 2px solid var(--good); }
+  .report { white-space: pre-wrap; background: var(--panel2); border-radius: 8px; padding: 12px; margin-top: 10px; font-size: 16px; }
+
+  .totals { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+  .total { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
+  .total .num { font-size: 26px; font-weight: 800; }
+  .total .lbl { font-size: 12px; color: var(--muted); text-transform: uppercase; }
+  .team { font-size: 14px; margin-bottom: 14px; background: var(--panel); border-radius: 10px; padding: 8px 12px; border: 1px solid var(--line); }
+  .team div { margin: 2px 0; }
+  .call { display: grid; grid-template-columns: 74px 1fr auto; gap: 6px; font-size: 14px; padding: 6px 8px; border-bottom: 1px solid var(--line); align-items: center; }
+  .role { font-size: 11px; font-weight: 800; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; text-align: center; background: var(--panel2); }
+  .role.agent { color: var(--gemma); } .role.narrator { color: var(--good); } .role.steer { color: var(--steer); } .role.checker { color: var(--gate); }
+  .call .model { word-break: break-all; }
+  .call .meta { color: var(--muted); text-align: right; white-space: nowrap; }
+  .call.fallback { background: rgba(255,107,107,.15); border: 1px solid var(--bad); border-radius: 8px; }
+  .call.fallback .note { grid-column: 1 / -1; color: var(--bad); font-weight: 700; }
+
+  footer { display: flex; gap: 10px; padding: 10px 16px; border-top: 1px solid var(--line); background: var(--panel); }
+  #steerInput { flex: 1; font-size: 18px; border-color: var(--steer); }
+  #steerBtn { background: var(--steer); color: #111; border-color: var(--steer); font-weight: 700; }
+
+  #gateModal { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: none; align-items: center; justify-content: center; padding: 20px; }
+  #gateModal.open { display: flex; }
+  .modal { background: var(--panel); border: 2px solid var(--gate); border-radius: 16px; padding: 22px 26px; max-width: 1000px; width: 100%; max-height: 90vh; overflow-y: auto; }
+  .modal h3 { margin: 0 0 6px; color: var(--gate); font-size: 15px; text-transform: uppercase; letter-spacing: 1px; }
+  .modal .question { font-size: 22px; margin-bottom: 16px; }
+  .verdicts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .verdict { background: var(--panel2); border-radius: 10px; padding: 12px; border: 2px solid var(--line); }
+  .verdict.agree { border-color: var(--good); } .verdict.disagree { border-color: var(--bad); }
+  .verdict .vmodel { font-size: 14px; color: var(--muted); word-break: break-all; }
+  .verdict .vword { font-size: 22px; font-weight: 800; text-transform: uppercase; }
+  .verdict.agree .vword { color: var(--good); } .verdict.disagree .vword { color: var(--bad); }
+  .options { display: flex; gap: 10px; flex-wrap: wrap; }
+  .options button { font-size: 17px; padding: 10px 16px; border-color: var(--gate); }
+  .hint { color: var(--muted); font-size: 14px; margin-bottom: 14px; }
+  .empty { color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">⎈ Helm <span>· Gemma</span></div>
+  <span id="modeBadge" class="badge live">LIVE</span>
+  <select id="demoSelect"><option value="">Demo tasks…</option></select>
+  <input id="taskInput" placeholder="What should the agent research?">
+  <button id="startBtn" class="primary">Start run</button>
+  <select id="replaySelect"><option value="">Saved runs…</option></select>
+  <select id="speedSelect"><option value="1">1x</option><option value="3" selected>3x</option><option value="8">8x</option></select>
+  <button id="replayBtn">Replay</button>
+</header>
+
+<main>
+  <section>
+    <h2>Plan</h2>
+    <div id="plan"><div class="empty">Start a run to see the plan.</div></div>
+  </section>
+  <section id="timelineWrap">
+    <h2>Timeline</h2>
+    <div id="timeline"></div>
+  </section>
+  <section>
+    <h2>Model team</h2>
+    <div class="totals">
+      <div class="total"><div class="num" id="tCalls">0</div><div class="lbl">model calls</div></div>
+      <div class="total"><div class="num" id="tModels">0</div><div class="lbl">distinct models</div></div>
+      <div class="total"><div class="num" id="tCost">$0</div><div class="lbl">total cost</div></div>
+      <div class="total"><div class="num" id="tFallbacks">0</div><div class="lbl">fallbacks</div></div>
+    </div>
+    <div class="team" id="team"></div>
+    <div id="calls"></div>
+  </section>
+</main>
+
+<footer>
+  <input id="steerInput" placeholder="Steer the agent, e.g. “Focus on one person's daily use”">
+  <button id="steerBtn">Steer</button>
+</footer>
+
+<div id="gateModal">
+  <div class="modal">
+    <h3 id="gateTitle">Decision needed</h3>
+    <div class="question" id="gateQuestion"></div>
+    <div class="hint" id="gateHint"></div>
+    <div class="verdicts" id="gateVerdicts"></div>
+    <div class="options" id="gateOptions"></div>
+  </div>
+</div>
+
+<script>
+let runId = null;
+let source = null;
+let lastSeq = 0;
+let replaying = false;
+let totals = { calls: 0, cost: 0, models: [], fallbacks: 0 };
+let openGateId = null;
+
+const el = (id) => document.getElementById(id);
+
+function make(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined && text !== null) node.textContent = text;
+  return node;
+}
+
+function shortModel(name) {
+  return (name || "").replace(/^[^/]+\//, "");
+}
+
+function scrollTimeline() {
+  const wrap = el("timelineWrap");
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+// ---------- setup ----------
+
+async function loadSetup() {
+  try {
+    const config = await (await fetch("/config")).json();
+    if (config.mock) { el("modeBadge").textContent = "MOCK"; el("modeBadge").className = "badge mock"; }
+    const team = el("team");
+    team.innerHTML = "";
+    team.append(make("div", "", "Agent: " + shortModel(config.agent_model)));
+    team.append(make("div", "", "Narrator: " + shortModel(config.narrator_model)));
+    team.append(make("div", "", "Steering: " + shortModel(config.steer_model)));
+    team.append(make("div", "", "Checkers: " + config.checker_models.map(shortModel).join(", ")));
+  } catch (e) {}
+
+  try {
+    const demo = await (await fetch("/demo-tasks")).json();
+    for (const task of demo.tasks) {
+      const option = make("option", "", task.title);
+      option.value = task.id;
+      el("demoSelect").append(option);
+    }
+    el("demoSelect").onchange = () => {
+      const task = demo.tasks.find((t) => t.id === el("demoSelect").value);
+      if (task) {
+        el("taskInput").value = task.prompt;
+        el("steerInput").placeholder = "Steer, e.g. “" + task.steer_message + "”";
+      }
+    };
+  } catch (e) {}
+
+  await loadSavedRuns();
+}
+
+async function loadSavedRuns() {
+  try {
+    const names = await (await fetch("/saved-runs")).json();
+    const select = el("replaySelect");
+    select.innerHTML = '<option value="">Saved runs…</option>';
+    for (const name of names) {
+      const option = make("option", "", name);
+      option.value = name;
+      select.append(option);
+    }
+  } catch (e) {}
+}
+
+function resetView() {
+  lastSeq = 0;
+  totals = { calls: 0, cost: 0, models: [], fallbacks: 0 };
+  el("timeline").innerHTML = "";
+  el("calls").innerHTML = "";
+  el("plan").innerHTML = '<div class="empty">Waiting for the plan…</div>';
+  renderTotals();
+  closeGate();
+}
+
+function listen(url, isReplay) {
+  if (source) source.close();
+  resetView();
+  replaying = isReplay;
+  el("modeBadge").textContent = isReplay ? "REPLAY" : el("modeBadge").dataset.mode || el("modeBadge").textContent;
+  if (isReplay) el("modeBadge").className = "badge replay";
+  source = new EventSource(url);
+  source.onmessage = (message) => handle(JSON.parse(message.data));
+  source.addEventListener("replay_done", () => { source.close(); });
+}
+
+// ---------- event handling ----------
+
+function handle(event) {
+  if (event.seq <= lastSeq) return;   // the stream resends history after a reconnect
+  lastSeq = event.seq;
+  const d = event.detail || {};
+  switch (event.type) {
+    case "run_started": addCard("task", "Task", event.summary); break;
+    case "plan": renderPlan(d.steps || []); break;
+    case "step_started": stepGroup(d.step_id, event.summary); break;
+    case "finding": showFinding(d); break;
+    case "narration": showNarration(d); break;
+    case "claim_check": showCheck(d); break;
+    case "gate": showGateCard(event, d); openGate(d); break;
+    case "gate_answered": addCard("gate", "You decided", d.answer); if (openGateId === d.gate_id) closeGate(); break;
+    case "steer_received": addCard("steer", "You said" + (d.source === "gamma" ? " (from Gamma)" : ""), d.text); break;
+    case "steer_applied": showSteerApplied(event, d); break;
+    case "model_call": addCall(d); break;
+    case "run_finished": showFinished(event, d); break;
+    case "error": addCard("error", "Error in " + (d.where || "app"), event.summary); break;
+  }
+  scrollTimeline();
+}
+
+function addCard(kind, who, text) {
+  const card = make("div", "card " + kind);
+  card.append(make("div", "who", who));
+  card.append(make("div", "", text));
+  el("timeline").append(card);
+  return card;
+}
+
+function renderPlan(steps) {
+  const plan = el("plan");
+  plan.innerHTML = "";
+  steps.forEach((step, index) => {
+    const box = make("div", "step " + step.status + (step.changed ? " changed" : ""));
+    const status = make("div", "status", (index + 1) + " · " + step.status);
+    if (step.changed) status.append(make("span", "tag", "CHANGED BY HUMAN"));
+    box.append(status);
+    box.append(make("div", "", step.text));
+    plan.append(box);
+  });
+}
+
+function stepGroup(stepId, title) {
+  let group = document.getElementById("step-" + stepId);
+  if (!group) {
+    group = make("div", "stepgroup");
+    group.id = "step-" + stepId;
+    group.append(make("div", "title", title || "Step"));
+    const narration = make("div", "narration waiting", "Gemma is researching…");
+    narration.id = "narr-" + stepId;
+    group.append(narration);
+    el("timeline").append(group);
+  }
+  return group;
+}
+
+function showNarration(d) {
+  stepGroup(d.step_id);
+  const narration = el("narr-" + d.step_id);
+  narration.className = "narration";
+  narration.textContent = d.text;
+}
+
+function showFinding(d) {
+  const group = stepGroup(d.step_id);
+  const narration = el("narr-" + d.step_id);
+  if (narration.classList.contains("waiting")) narration.textContent = "Checking the claims with three models…";
+  const box = make("details");
+  box.append(make("summary", "", "Finding · confidence " + Math.round((d.confidence || 0) * 100) + "%"));
+  box.append(make("div", "", d.text));
+  if (d.claims && d.claims.length) {
+    const list = make("ul");
+    d.claims.forEach((c) => list.append(make("li", "", c)));
+    box.append(list);
+  }
+  if (d.sources && d.sources.length) {
+    const sources = make("div", "sources");
+    d.sources.forEach((s) => {
+      if (/^https?:\/\//.test(s)) {
+        const link = make("a", "", s);
+        link.href = s; link.target = "_blank"; link.rel = "noopener noreferrer";
+        sources.append(link, make("br"));
+      }
+    });
+    box.append(sources);
+  }
+  group.append(box);
+}
+
+function showCheck(d) {
+  const lastGroup = el("timeline").querySelector(".stepgroup:last-of-type") || el("timeline");
+  const box = make("div", "check" + (d.split ? " split" : ""));
+  box.append(make("span", "", d.split ? "⚠ Models disagree: " : "✓ Checked: "));
+  box.append(make("span", "", d.claim + " "));
+  box.append(make("br"));
+  (d.verdicts || []).forEach((v) => box.append(make("span", "chip " + v.verdict, shortModel(v.model) + ": " + v.verdict)));
+  lastGroup.append(box);
+}
+
+function showGateCard(event, d) {
+  addCard("gate", "Waiting for a human", event.summary);
+}
+
+function showSteerApplied(event, d) {
+  const card = addCard("steer", "Agent changed course", event.summary);
+  if (d.edits && d.edits.length) {
+    const list = make("ul");
+    d.edits.forEach((e) => list.append(make("li", "", e.action.replace("_", " ") + ": " + (e.text || e.step_id || ""))));
+    card.append(list);
+  }
+}
+
+function showFinished(event, d) {
+  const card = addCard("finished", "Run finished", event.summary);
+  if (d.report) card.append(make("div", "report", d.report));
+  loadSavedRuns();
+}
+
+// ---------- models panel ----------
+
+function addCall(d) {
+  totals.calls += 1;
+  totals.cost += d.cost || 0;
+  if (!totals.models.includes(d.model_used)) totals.models.push(d.model_used);
+  if (d.fallback_used) totals.fallbacks += 1;
+  renderTotals();
+
+  const row = make("div", "call" + (d.fallback_used ? " fallback" : ""));
+  row.append(make("div", "role " + d.role, d.role));
+  row.append(make("div", "model", shortModel(d.model_used)));
+  const cost = d.cost ? "$" + d.cost.toFixed(5) : "";
+  row.append(make("div", "meta", d.seconds + "s " + cost));
+  if (d.fallback_used) {
+    row.append(make("div", "note", "⚠ " + shortModel(d.model_requested) + " failed, OpenRouter served " + shortModel(d.model_used)));
+  }
+  el("calls").prepend(row);
+}
+
+function renderTotals() {
+  el("tCalls").textContent = totals.calls;
+  el("tModels").textContent = totals.models.length;
+  el("tCost").textContent = "$" + totals.cost.toFixed(4);
+  el("tFallbacks").textContent = totals.fallbacks;
+}
+
+// ---------- gates ----------
+
+function openGate(d) {
+  openGateId = d.gate_id;
+  el("gateTitle").textContent = d.reason === "split" ? "The models disagree. You decide." : "The agent is unsure. You decide.";
+  el("gateQuestion").textContent = d.question;
+  el("gateHint").textContent = d.reason === "split"
+    ? "A split doesn't mean the claim is false. It means a human should look here."
+    : "";
+  const verdicts = el("gateVerdicts");
+  verdicts.innerHTML = "";
+  (d.verdicts || []).forEach((v) => {
+    const box = make("div", "verdict " + v.verdict);
+    box.append(make("div", "vmodel", v.model));
+    box.append(make("div", "vword", v.verdict));
+    box.append(make("div", "", v.reason));
+    verdicts.append(box);
+  });
+  const options = el("gateOptions");
+  options.innerHTML = "";
+  (d.options || []).forEach((option) => {
+    const button = make("button", "", option);
+    button.onclick = () => answerGate(d.gate_id, option);
+    if (replaying) button.disabled = true;
+    options.append(button);
+  });
+  el("gateModal").classList.add("open");
+}
+
+function closeGate() {
+  openGateId = null;
+  el("gateModal").classList.remove("open");
+}
+
+async function answerGate(gateId, answer) {
+  if (!runId) return;
+  el("gateOptions").querySelectorAll("button").forEach((b) => (b.disabled = true));
+  await fetch("/runs/" + runId + "/gate", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ gate_id: gateId, answer: answer }),
+  });
+}
+
+// ---------- actions ----------
+
+el("startBtn").onclick = async () => {
+  const task = el("taskInput").value.trim();
+  if (!task) return;
+  el("startBtn").disabled = true;
+  const reply = await (await fetch("/runs", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ task: task }),
+  })).json();
+  el("startBtn").disabled = false;
+  runId = reply.run_id;
+  location.hash = "run=" + runId;
+  el("modeBadge").className = el("modeBadge").textContent === "MOCK" ? "badge mock" : "badge live";
+  listen("/runs/" + runId + "/events", false);
+};
+
+async function sendSteer() {
+  const text = el("steerInput").value.trim();
+  if (!text || !runId || replaying) return;
+  el("steerInput").value = "";
+  await fetch("/runs/" + runId + "/steer", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: text }),
+  });
+}
+el("steerBtn").onclick = sendSteer;
+el("steerInput").onkeydown = (e) => { if (e.key === "Enter") sendSteer(); };
+
+el("replayBtn").onclick = () => {
+  const name = el("replaySelect").value;
+  if (!name) return;
+  runId = null;
+  listen("/replay/" + name + "?speed=" + el("speedSelect").value, true);
+};
+
+// A refresh reconnects to the same run and replays its history.
+loadSetup().then(() => {
+  const match = location.hash.match(/run=(\w+)/);
+  if (match) {
+    runId = match[1];
+    listen("/runs/" + runId + "/events", false);
+  }
+});
+</script>
+</body>
+</html>

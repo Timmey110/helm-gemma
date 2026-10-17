@@ -1,0 +1,84 @@
+{
+  "how_to_use": "Run rehearse_demo.py claims to see which task makes the checker models split most reliably. Demo the winner, keep the runner-up as backup, and record both runs for replay mode.",
+  "tasks": [
+    {
+      "id": "ai-water",
+      "rank": 1,
+      "title": "The real environmental cost of chatbots",
+      "prompt": "Research how much water and electricity it takes to use AI chatbots like ChatGPT and Gemini, and explain what one student's daily use actually costs. Give numbers and cite sources.",
+      "why_it_works": "The famous numbers here (500 ml of water per chat, 10x a Google search) have been revised and argued about publicly, so different models learned different versions. Judges have heard these numbers too.",
+      "steer_message": "Focus on what one person's daily use costs, skip data center construction.",
+      "expected_gate": "Per-query water or energy figures, where checkers from different providers split.",
+      "seed_claims": [
+        "A single typical AI chatbot query uses about 500 milliliters of water.",
+        "One AI chatbot query uses about ten times as much electricity as one Google search.",
+        "US data centers will use more than 10% of the country's electricity by 2030.",
+        "A typical AI chatbot query uses less electricity than running a microwave for one second."
+      ]
+    },
+    {
+      "id": "ai-tutors",
+      "rank": 2,
+      "title": "Should URI students use AI tutors?",
+      "prompt": "Should URI students use AI tutors? Research the evidence on learning outcomes, risks, and costs, and give a recommendation for students in intro courses.",
+      "why_it_works": "Relatable for a student audience. Mixes a contested headline result with claims most models agree on, which shows the checkers are not just random.",
+      "steer_message": "Focus on intro STEM courses, skip pricing.",
+      "expected_gate": "The 'twice as much learning' study result, or whether AI homework help lowers exam scores.",
+      "seed_claims": [
+        "In a controlled study, students using a well-designed AI tutor learned about twice as much as students in an active-learning class.",
+        "Students who use AI for homework tend to score lower on exams taken without AI.",
+        "Most US college students used generative AI tools for coursework in 2025.",
+        "AI detectors can reliably tell whether a student essay was written by AI."
+      ]
+    },
+    {
+      "id": "remote-work",
+      "rank": 3,
+      "title": "Remote work vs the office",
+      "prompt": "Is remote work more or less productive than office work? Summarize the research for a manager deciding on a return-to-office policy.",
+      "why_it_works": "Researchers genuinely disagree, and results depend on fully remote vs hybrid, so models often hedge differently.",
+      "steer_message": "Focus on software engineering teams.",
+      "expected_gate": "Whether fully remote workers are more productive on average.",
+      "seed_claims": [
+        "Fully remote workers are, on average, more productive than office workers.",
+        "Hybrid work with two or three office days a week has little or no effect on productivity.",
+        "Fully remote work reduces mentoring for junior employees."
+      ]
+    },
+    {
+      "id": "practice-rule",
+      "rank": 4,
+      "title": "Is the 10,000-hour rule real?",
+      "prompt": "Does it really take 10,000 hours to master a skill? Research what the evidence says, using learning to program as the example.",
+      "why_it_works": "A popular idea that researchers have pushed back on. One claim is widely agreed (where the number came from), the others are contested.",
+      "steer_message": "Focus on learning to code in college.",
+      "expected_gate": "How much of the skill difference deliberate practice explains.",
+      "seed_claims": [
+        "Deliberate practice explains most of the differences in skill between experts and novices.",
+        "Research shows it takes about 10,000 hours of practice to become an expert in any field.",
+        "The 10,000-hour figure comes from a study of violinists."
+      ]
+    },
+    {
+      "id": "control-photosynthesis",
+      "rank": 5,
+      "title": "Control task: photosynthesis",
+      "prompt": "Explain how photosynthesis works for a high school biology student.",
+      "why_it_works": "Not for the main demo. Every checker should agree, so no gate should appear. Use it to prove Helm does not cry wolf.",
+      "steer_message": "Focus on what happens in the leaf, skip the chemistry equations.",
+      "expected_gate": "None. If a gate appears here, your disagreement rule is too sensitive.",
+      "seed_claims": [
+        "Photosynthesis releases oxygen as a byproduct.",
+        "In plants, photosynthesis mainly takes place in chloroplasts.",
+        "Photosynthesis turns light energy into chemical energy stored in sugar."
+      ]
+    }
+  ],
+  "fallback_demo": {
+    "how_it_works": "OpenRouter tries the next model in the models list when the first one errors, including context length errors. Make a small-context model the primary and send it more text than it can hold, so it fails for a real reason and the backup answers.",
+    "role": "narrator",
+    "primary_model": "SET_ME_small_context_model",
+    "backup_model": "SET_ME_gemini_flash_model",
+    "note": "Run rehearse_demo.py small-models to find a primary, then rehearse_demo.py fallback to test it."
+  }
+}
