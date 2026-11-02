@@ -7,3 +7,7 @@ rehearsal_results.json
 # Saved runs stay local, except the recorded demo used for replay.
 runs/*
 !runs/e714faad.json
+
+# Local AI assistant files
+.claude/
+CLAUDE.md
